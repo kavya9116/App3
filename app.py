@@ -1,3 +1,6 @@
+# Install Streamlit (if not already installed)
+!pip install streamlit
+
 """
 Indian Government Budget Analysis Dashboard
 =============================================
@@ -6,6 +9,7 @@ the Union Budget of India across ministries and financial years
 (2013-14 to 2023-24).
 """
 
+import streamlit as st
 import pandas as pd
 import plotly.express as px
 import plotly.graph_objects as go
