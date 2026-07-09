@@ -6,11 +6,9 @@ the Union Budget of India across ministries and financial years
 (2013-14 to 2023-24).
 """
 
-import streamlit as st
 import pandas as pd
 import plotly.express as px
 import plotly.graph_objects as go
-from plotly.subplots import make_subplots
 import numpy as np
 
 # ─── Page Configuration ───────────────────────────────────────────────────────
@@ -417,19 +415,24 @@ if selected_years and selected_ministries:
         with col_a:
             year_a = st.selectbox("Year A", selected_years, index=0, key="ya")
         with col_b:
+            default_b_idx = len(selected_years) - 1 if len(selected_years) > 1 else 0
             year_b = st.selectbox(
                 "Year B",
                 selected_years,
-                index=min(len(selected_years) - 1, len(selected_years) - 1),
+                index=default_b_idx,
                 key="yb",
             )
 
-        comp_df = df_filtered[["Ministry/Department", year_a, year_b]].copy()
-        comp_df["Change (₹ Cr)"] = comp_df[year_b] - comp_df[year_a]
-        comp_df["Change (%)"] = (
-            (comp_df["Change (₹ Cr)"] / comp_df[year_a] * 100)
-            .round(1)
-            .replace([np.inf, -np.inf], 0)
+        if year_a == year_b:
+            st.info("ℹ️ Please select two different years to compare.")
+        comp_df = df_filtered[["Ministry/Department"]].copy()
+        comp_df[year_a] = df_filtered[year_a].values
+        comp_df[year_b + " "] = df_filtered[year_b].values  # space suffix avoids duplicate col if same year
+        comp_df["Change (₹ Cr)"] = comp_df[year_b + " "] - comp_df[year_a]
+        comp_df["Change (%)"] = np.where(
+            comp_df[year_a] != 0,
+            (comp_df["Change (₹ Cr)"] / comp_df[year_a] * 100).round(1),
+            0.0,
         )
         comp_df = comp_df.sort_values("Change (%)", ascending=True)
 
@@ -443,7 +446,7 @@ if selected_years and selected_ministries:
         ))
         fig_comp.add_trace(go.Bar(
             y=comp_df["Ministry/Department"],
-            x=comp_df[year_b],
+            x=comp_df[year_b + " "],
             name=year_b,
             orientation="h",
             marker_color="#22d3ee",
@@ -581,7 +584,9 @@ if selected_years and selected_ministries:
 
         # Growth heatmap
         st.markdown('<div class="section-title">Growth Rate Heatmap (%)</div>', unsafe_allow_html=True)
-        growth_matrix = heat_data.pct_change(axis=1) * 100
+        # Manual pct_change along columns (axis=1 was removed in pandas 2.2+)
+        shifted = heat_data.shift(axis=1)
+        growth_matrix = ((heat_data - shifted) / shifted * 100)
         growth_matrix = growth_matrix.iloc[:, 1:]  # drop first NaN col
         if not growth_matrix.empty:
             fig_gheat = px.imshow(
